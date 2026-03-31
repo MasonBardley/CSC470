@@ -45,10 +45,6 @@ context_text <- unlist(all_paragraphs) |>
   paste(collapse = "\n")
 paragraphs <- unlist(str_split(context_text, "\n+"))
 
-
-sample(paragraphs, 1)
-paragraphs
-
 ### The Keyword/Context Function
 
 get_relevant_context <- function(user_prompt, wiki_text, top_n = 5) {
@@ -65,25 +61,67 @@ get_relevant_context <- function(user_prompt, wiki_text, top_n = 5) {
 ## Code for AI App
 
 ui <- bslib::page_fillable(
-  chat_ui(
-    id = "chat",
-    messages = "**Hello.** My name is Dr. House. What brings you to the clinic today?"
-  ),
+  uiOutput("main_screen"),
   fillable_mobile = TRUE
 )
 
 server <- function(input, output, session) {
-  chat <-
-    ellmer::chat_anthropic(
+  rv <- reactiveValues(
+    mode = NULL,
+    secret_case = NULL,
+    chat = NULL
+  )
+  output$main_screen <- renderUI({
+    if (is.null(rv$mode)) {
+      layout_column_wrap(
+        width = 1/2,
+        card(
+          card_header("Patient Clinic"),
+          p("Talk to House about your symptoms."),
+          actionButton("btn_patient", "I am a Patient", class = "btn-primary")
+        ),
+        card(
+          card_header("Diagnosis Game"),
+          p("Try to solve a case while House mocks you."),
+          actionButton("btn_doctor", "I am a Doctor", class = "btn-danger")
+        )
+      )
+    } else {
+      chat_ui(
+        id = "chat",
+        messages = if (rv$mode == "patient") {
+          "**Hello.** My name is Dr. House. What brings you to the clinic today?"
+        } else {
+          "We're trying to **not** kill the patient this time."
+          "My name is Dr. House, and I see we're letting anybody become a doctor these days. Why don't you start by asking for the patient's symptoms?"
+        }
+      )
+    }
+  })
+  observeEvent(input$btn_patient, {
+    rv$mode <- "patient"
+    rv$chat <- ellmer::chat_anthropic(
       system_prompt = readLines("~/test-bot/house_system_prompt.Rmd")
     )
+  })
   
+  observeEvent(input$btn_doctor, {
+    rv$mode <- "game"
+    rv$secret_case <- sample(paragraphs, 1)
+    rv$chat <- ellmer::chat_anthropic(
+      system_prompt = readLines("~/test-bot/game_system_prompt.Rmd")
+    )
+  })
   observeEvent(input$chat_user_input, {
-    context_data <- get_relevant_context(input$chat_user_input, paragraphs)
-    cat("--- DEBUG: CONTEXT SENT TO AI ---\n", context_data, "\n------------------\n")
+    if (rv$mode == "patient") {
+      context_data <- get_relevant_context(input$chat_user_input, paragraphs)
+      cat("--- DEBUG: CONTEXT SENT TO AI ---\n", context_data, "\n---\n")
+      enriched_prompt <- paste0("Context: ", context_data, "\n\nQuestion: ", input$chat_user_input)
+      stream <- rv$chat$stream_async(enriched_prompt)
+    } else {
+      stream <- rv$chat$stream_async(input$chat_user_input)
+    }
     
-    enriched_prompt <- paste0("Context: ", context_data, "\n\nQuestion: ", input$chat_user_input)
-    stream <- chat$stream_async(enriched_prompt)
     chat_append("chat", stream)
   })
 }
