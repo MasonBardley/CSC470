@@ -71,6 +71,7 @@ server <- function(input, output, session) {
     secret_case = NULL,
     chat = NULL
   )
+  selected_case <- sample(paragraphs, 1)
   output$main_screen <- renderUI({
     if (is.null(rv$mode)) {
       layout_column_wrap(
@@ -92,8 +93,7 @@ server <- function(input, output, session) {
         messages = if (rv$mode == "patient") {
           "**Hello.** My name is Dr. House. What brings you to the clinic today?"
         } else {
-          "We're trying to **not** kill the patient this time."
-          "My name is Dr. House, and I see we're letting anybody become a doctor these days. Why don't you start by asking for the patient's symptoms?"
+          "My name is Dr. House. I see we're letting anybody become a doctor these days. **Why don't you start by asking for the patient's symptoms?**"
         }
       )
     }
@@ -107,10 +107,11 @@ server <- function(input, output, session) {
   
   observeEvent(input$btn_doctor, {
     rv$mode <- "game"
-    rv$secret_case <- sample(paragraphs, 1)
+    rv$secret_case <- selected_case
     rv$chat <- ellmer::chat_anthropic(
       system_prompt = readLines("~/test-bot/game_system_prompt.Rmd")
     )
+    cat("---DEBUG: SECRET_CASE ---\n", selected_case, "\n---\n")
   })
   observeEvent(input$chat_user_input, {
     if (rv$mode == "patient") {
@@ -119,7 +120,8 @@ server <- function(input, output, session) {
       enriched_prompt <- paste0("Context: ", context_data, "\n\nQuestion: ", input$chat_user_input)
       stream <- rv$chat$stream_async(enriched_prompt)
     } else {
-      stream <- rv$chat$stream_async(input$chat_user_input)
+      enriched_prompt <- paste0("Selected Case:", selected_case, "\n\nPrompt: ", input$chat_user_input)
+      stream <- rv$chat$stream_async(enriched_prompt)
     }
     
     chat_append("chat", stream)
@@ -133,7 +135,7 @@ shinyApp(ui, server)
 
 ### 3/2 --- https://gemini.google.com/share/80cc7190e5a4
 
-
+## 4/2 --- https://gemini.google.com/share/ef99fbb25b52
 
 
 ## Sample Prompts
