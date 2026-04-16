@@ -5,8 +5,9 @@ library(rvest)
 library(tidytext)
 library(dplyr)
 library(purrr)
+library(bslib)
 
-Sys.setenv(ANTHROPIC_API_KEY = readLines("~/test-bot/api-key.txt"))
+Sys.setenv(ANTHROPIC_API_KEY = readLines("api-key.txt"))
 
 data("stop_words")
 
@@ -101,7 +102,7 @@ server <- function(input, output, session) {
   observeEvent(input$btn_patient, {
     rv$mode <- "patient"
     rv$chat <- ellmer::chat_anthropic(
-      system_prompt = readLines("~/test-bot/house_system_prompt.Rmd")
+      system_prompt = readLines("house_system_prompt.Rmd")
     )
   })
   
@@ -109,7 +110,7 @@ server <- function(input, output, session) {
     rv$mode <- "game"
     rv$secret_case <- selected_case
     rv$chat <- ellmer::chat_anthropic(
-      system_prompt = readLines("~/test-bot/game_system_prompt.Rmd")
+      system_prompt = readLines("game_system_prompt.Rmd")
     )
     cat("---DEBUG: SECRET_CASE ---\n", selected_case, "\n---\n")
   })
